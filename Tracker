@@ -1,0 +1,54 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const multer = require("multer");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// MongoDB connection
+mongoose.connect("mongodb://localhost:27017/project-tracker", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+// Schema
+const projectSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  tags: [String],
+  images: [String], // store image file paths
+});
+
+const Project = mongoose.model("Project", projectSchema);
+
+// File upload setup
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+});
+const upload = multer({ storage });
+
+// Routes
+app.post("/projects", upload.array("images"), async (req, res) => {
+  const { title, description, tags } = req.body;
+  const imagePaths = req.files.map((f) => f.path);
+
+  const project = new Project({
+    title,
+    description,
+    tags: tags.split(","),
+    images: imagePaths,
+  });
+
+  await project.save();
+  res.json(project);
+});
+
+app.get("/projects", async (req, res) => {
+  const projects = await Project.find();
+  res.json(projects);
+});
+
+app.listen(5000, () => console.log("Server running on http://localhost:5000"));
